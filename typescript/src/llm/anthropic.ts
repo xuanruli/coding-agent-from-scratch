@@ -82,18 +82,3 @@ export class AnthropicProvider implements LLMProvider {
     yield { type: "message_stop" };
   }
 }
-
-type A = string;
-type B = number;
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  items: (A | B)[];
-}
-
-type UserItem<T extends User> = T['items'][number];
-
-
