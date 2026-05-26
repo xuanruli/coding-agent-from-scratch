@@ -2,7 +2,6 @@ import { writeFile, mkdir, readFile } from "fs/promises";
 import { dirname } from "path";
 import type { Tool } from "../llm/types.js";
 
-// Tool definition for LLM
 export const writeToolDefinition: Tool = {
   name: "write_file",
   description:
