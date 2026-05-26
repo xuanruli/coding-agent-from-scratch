@@ -4,6 +4,11 @@ export interface Message {
   content: string;
 }
 
+export interface StreamEvent {
+  type: "message_start" | "text_delta" | "message_stop" | "error";
+  text?: string;
+}
+
 // Response from a chat completion
 export interface ChatResponse {
   text: string;

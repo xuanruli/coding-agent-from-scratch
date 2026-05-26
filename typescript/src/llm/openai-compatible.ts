@@ -4,6 +4,7 @@ import type {
   ChatResponse,
   ChatOptions,
   LLMProvider,
+  StreamEvent,
 } from "./types.js";
 
 export interface OpenAICompatibleConfig {
@@ -59,5 +60,28 @@ export class OpenAICompatibleProvider implements LLMProvider {
         outputTokens: response.usage?.completion_tokens ?? 0,
       },
     };
+  }
+
+  async *stream(
+    messages: Message[],
+    options?: ChatOptions
+  ): AsyncIterable<StreamEvent> {
+    const stream = await this.client.chat.completions.create({
+      model: this.model,
+      max_tokens: options?.maxTokens ?? 4096,
+      messages: this.formatMessages(messages, options?.system),
+      stream: true,
+    });
+  
+    yield { type: "message_start" };
+  
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      if (delta?.content) {
+        yield { type: "text_delta", text: delta.content };
+      }
+    }
+  
+    yield { type: "message_stop" };
   }
 }
