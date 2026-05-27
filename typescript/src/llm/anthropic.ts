@@ -64,7 +64,7 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     const response = await this.client.messages.create(
-      params as Anthropic.MessageCreateParamsNonStreaming
+      params as unknown as Anthropic.MessageCreateParamsNonStreaming
     );
 
     // Extract text from response content blocks
@@ -110,7 +110,7 @@ export class AnthropicProvider implements LLMProvider {
     if (options?.system) params.system = options.system;
 
     const stream = this.client.messages.stream(
-      params as Anthropic.MessageCreateParamsNonStreaming
+      params as unknown as Anthropic.MessageCreateParamsNonStreaming
     );
   
     yield { type: "message_start" };

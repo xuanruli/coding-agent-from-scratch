@@ -47,7 +47,6 @@ export function executeBashTool(input: BashToolInput): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn("bash", ["-c", command], {
       timeout,
-      maxBuffer: MAX_OUTPUT_SIZE * 2,
       env: { ...process.env },
     });
 

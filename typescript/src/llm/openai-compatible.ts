@@ -103,6 +103,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
     if (choice.message.tool_calls) {
       for (const tc of choice.message.tool_calls) {
+        if (tc.type !== "function") continue;
         content.push({
           type: "tool_use",
           id: tc.id,
