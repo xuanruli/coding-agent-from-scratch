@@ -12,22 +12,30 @@ import * as os from "node:os";
 import { createProvider } from "./src/llm/factory.js";
 import { runAgent } from "./src/agent.js";
 import type { AgentConfig } from "./src/agent.js";
-import { TaskManager, executeTaskTool, TASK_TOOLS } from "./src/task.js";
+import {
+  TaskManager, executeTaskTool, TASK_TOOLS,
+  taskCreateInputSchema, taskUpdateInputSchema, taskListInputSchema,
+} from "./src/task.js";
 import { RetryProvider, safeToolExecutor } from "./src/error.js";
 import { SystemPromptBuilder } from "./src/system-prompt.js";
-import { Scratchpad, SCRATCHPAD_TOOLS, executeScratchpadTool } from "./src/context.js";
+import {
+  Scratchpad, SCRATCHPAD_TOOLS, executeScratchpadTool,
+  scratchpadSetInputSchema, scratchpadGetInputSchema, scratchpadListInputSchema,
+} from "./src/context.js";
 import { renderMarkdown } from "./src/markdown.js";
 import { Spinner, formatToolCycle } from "./src/tool-display.js";
 import { FileSystemSandbox, checkDangerousCommand, readProjectConfig } from "./src/safety.js";
 import { runRepl } from "./src/repl.js";
 import {
-  readToolDefinition, executeReadTool, type ReadToolInput,
-  writeToolDefinition, executeWriteTool, type WriteToolInput,
-  bashToolDefinition, executeBashTool, type BashToolInput,
-  globToolDefinition, executeGlobTool, type GlobToolInput,
-  grepToolDefinition, executeGrepTool, type GrepToolInput,
+  validateToolInput,
+  readToolDefinition, executeReadTool, type ReadToolInput, readInputSchema,
+  writeToolDefinition, executeWriteTool, type WriteToolInput, writeInputSchema,
+  bashToolDefinition, executeBashTool, type BashToolInput, bashInputSchema,
+  globToolDefinition, executeGlobTool, type GlobToolInput, globInputSchema,
+  grepToolDefinition, executeGrepTool, type GrepToolInput, grepInputSchema,
 } from "./src/tools/index.js";
 import type { Tool } from "./src/llm/types.js";
+import type * as z from "zod";
 
 // ── Configuration ──────────────────────────────────────────
 const AGENT_NAME = process.env.AGENT_NAME ?? "AI Coding";
@@ -67,8 +75,33 @@ const allTools: Tool[] = [
 // ── Safety (Ch20) ──────────────────────────────────────────
 const sandbox = new FileSystemSandbox([PROJECT_DIR, os.tmpdir()]);
 
+// ── Tool input validation (runtime, at the LLM trust boundary) ────
+const TOOL_SCHEMAS: Record<string, z.ZodType> = {
+  read_file: readInputSchema,
+  write_file: writeInputSchema,
+  bash: bashInputSchema,
+  glob: globInputSchema,
+  grep: grepInputSchema,
+  task_create: taskCreateInputSchema,
+  task_update: taskUpdateInputSchema,
+  task_list: taskListInputSchema,
+  scratchpad_set: scratchpadSetInputSchema,
+  scratchpad_get: scratchpadGetInputSchema,
+  scratchpad_list: scratchpadListInputSchema,
+};
+
 // ── Tool Executor (Ch09 + Ch12 + Ch19 + Ch20) ─────────────
 async function rawExecutor(name: string, input: Record<string, unknown>): Promise<string> {
+  // Validate the LLM-supplied arguments against the tool's schema before
+  // doing anything else. On failure, return the error to the LLM so it can
+  // correct the call rather than crashing on malformed input.
+  const schema = TOOL_SCHEMAS[name];
+  if (schema) {
+    const validated = validateToolInput(schema, input);
+    if (!validated.ok) return validated.error;
+    input = validated.data as Record<string, unknown>;
+  }
+
   if (name.startsWith("task_")) return executeTaskTool(taskManager, name, input);
   if (name.startsWith("scratchpad_")) return executeScratchpadTool(scratchpad, name, input);
 

@@ -1,6 +1,20 @@
 import { readdir, stat } from "fs/promises";
 import { join, relative } from "path";
+import * as z from "zod";
 import type { Tool } from "../llm/types.js";
+import { toInputSchema } from "./schema.js";
+
+export const globInputSchema = z.object({
+  pattern: z
+    .string()
+    .describe('The pattern to match files against (e.g. "*.ts", "src/**/*.py")'),
+  path: z
+    .string()
+    .optional()
+    .describe("The directory to search in (default: current directory)"),
+});
+
+export type GlobToolInput = z.infer<typeof globInputSchema>;
 
 // Tool definition for LLM
 export const globToolDefinition: Tool = {
@@ -9,27 +23,8 @@ export const globToolDefinition: Tool = {
     "Find files matching a glob-like pattern. " +
     "Searches recursively from the given directory. " +
     "Returns matching file paths sorted alphabetically.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      pattern: {
-        type: "string",
-        description:
-          'The pattern to match files against (e.g. "*.ts", "src/**/*.py")',
-      },
-      path: {
-        type: "string",
-        description: "The directory to search in (default: current directory)",
-      },
-    },
-    required: ["pattern"],
-  },
+  inputSchema: toInputSchema(globInputSchema),
 };
-
-export interface GlobToolInput {
-  pattern: string;
-  path?: string;
-}
 
 const MAX_RESULTS = 200;
 

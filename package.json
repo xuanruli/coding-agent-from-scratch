@@ -19,7 +19,8 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
-    "openai": "^6.39.0"
+    "openai": "^6.39.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

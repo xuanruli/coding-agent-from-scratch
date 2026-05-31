@@ -1,5 +1,27 @@
 import { readFile, stat } from "fs/promises";
+import * as z from "zod";
 import type { Tool } from "../llm/types.js";
+import { toInputSchema } from "./schema.js";
+
+// Single source of truth: Zod schema drives both the TS type and the
+// JSON Schema advertised to the LLM.
+export const readInputSchema = z.object({
+  file_path: z
+    .string()
+    .describe("The absolute or relative path to the file to read"),
+  offset: z
+    .number()
+    .int()
+    .optional()
+    .describe("Line number to start reading from (1-based, default: 1)"),
+  limit: z
+    .number()
+    .int()
+    .optional()
+    .describe("Maximum number of lines to read (default: all)"),
+});
+
+export type ReadToolInput = z.infer<typeof readInputSchema>;
 
 // Tool definition for LLM
 export const readToolDefinition: Tool = {
@@ -7,31 +29,8 @@ export const readToolDefinition: Tool = {
   description:
     "Read the contents of a file. Returns the file content with line numbers. " +
     "Use offset and limit to read specific portions of large files.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      file_path: {
-        type: "string",
-        description: "The absolute or relative path to the file to read",
-      },
-      offset: {
-        type: "number",
-        description: "Line number to start reading from (1-based, default: 1)",
-      },
-      limit: {
-        type: "number",
-        description: "Maximum number of lines to read (default: all)",
-      },
-    },
-    required: ["file_path"],
-  },
+  inputSchema: toInputSchema(readInputSchema),
 };
-
-export interface ReadToolInput {
-  file_path: string;
-  offset?: number;
-  limit?: number;
-}
 
 // Maximum file size to read (1MB)
 const MAX_FILE_SIZE = 1024 * 1024;

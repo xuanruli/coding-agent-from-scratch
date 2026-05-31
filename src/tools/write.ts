@@ -1,32 +1,25 @@
 import { writeFile, mkdir, readFile } from "fs/promises";
 import { dirname } from "path";
+import * as z from "zod";
 import type { Tool } from "../llm/types.js";
+import { toInputSchema } from "./schema.js";
+
+export const writeInputSchema = z.object({
+  file_path: z
+    .string()
+    .describe("The absolute or relative path to the file to write"),
+  content: z.string().describe("The content to write to the file"),
+});
+
+export type WriteToolInput = z.infer<typeof writeInputSchema>;
 
 export const writeToolDefinition: Tool = {
   name: "write_file",
   description:
     "Write content to a file. Creates the file if it doesn't exist, " +
     "or overwrites it if it does. Automatically creates parent directories.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      file_path: {
-        type: "string",
-        description: "The absolute or relative path to the file to write",
-      },
-      content: {
-        type: "string",
-        description: "The content to write to the file",
-      },
-    },
-    required: ["file_path", "content"],
-  },
+  inputSchema: toInputSchema(writeInputSchema),
 };
-
-export interface WriteToolInput {
-  file_path: string;
-  content: string;
-}
 
 // Generate a unified diff between old and new content
 function generateDiff(

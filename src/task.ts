@@ -1,7 +1,16 @@
+import * as z from "zod";
 import type { Tool } from "./llm/types.js";
+import { toInputSchema } from "./tools/schema.js";
 
 // Task status
 export type TaskStatus = "pending" | "in_progress" | "completed" | "failed";
+
+const taskStatusSchema = z.enum([
+  "pending",
+  "in_progress",
+  "completed",
+  "failed",
+]);
 
 // A single task in the plan
 export interface Task {
@@ -70,57 +79,41 @@ export class TaskManager {
   }
 }
 
+// Tool input schemas (single source of truth for type + JSON Schema)
+export const taskCreateInputSchema = z.object({
+  description: z.string().describe("Description of the task to create"),
+});
+
+export const taskUpdateInputSchema = z.object({
+  id: z.string().describe("The task ID to update"),
+  status: taskStatusSchema.describe("The new status for the task"),
+});
+
+export const taskListInputSchema = z.object({
+  status: taskStatusSchema
+    .optional()
+    .describe("Filter tasks by status (optional)"),
+});
+
 // Tool definitions for task management
 export const taskCreateToolDefinition: Tool = {
   name: "task_create",
   description: "Create a new task in the plan. Returns the task ID.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      description: {
-        type: "string",
-        description: "Description of the task to create",
-      },
-    },
-    required: ["description"],
-  },
+  inputSchema: toInputSchema(taskCreateInputSchema),
 };
 
 export const taskUpdateToolDefinition: Tool = {
   name: "task_update",
   description:
     'Update the status of an existing task. Status can be "pending", "in_progress", "completed", or "failed".',
-  inputSchema: {
-    type: "object",
-    properties: {
-      id: {
-        type: "string",
-        description: "The task ID to update",
-      },
-      status: {
-        type: "string",
-        enum: ["pending", "in_progress", "completed", "failed"],
-        description: "The new status for the task",
-      },
-    },
-    required: ["id", "status"],
-  },
+  inputSchema: toInputSchema(taskUpdateInputSchema),
 };
 
 export const taskListToolDefinition: Tool = {
   name: "task_list",
   description:
     "List all tasks in the current plan with their status. Optionally filter by status.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      status: {
-        type: "string",
-        enum: ["pending", "in_progress", "completed", "failed"],
-        description: "Filter tasks by status (optional)",
-      },
-    },
-  },
+  inputSchema: toInputSchema(taskListInputSchema),
 };
 
 // Execute a task management tool

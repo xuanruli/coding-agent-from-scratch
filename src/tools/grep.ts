@@ -1,6 +1,22 @@
 import { readFile, readdir, stat } from "fs/promises";
 import { join, relative } from "path";
+import * as z from "zod";
 import type { Tool } from "../llm/types.js";
+import { toInputSchema } from "./schema.js";
+
+export const grepInputSchema = z.object({
+  pattern: z.string().describe("The regex pattern to search for"),
+  path: z
+    .string()
+    .optional()
+    .describe("File or directory to search in (default: current directory)"),
+  include: z
+    .string()
+    .optional()
+    .describe('Glob filter for file names (e.g. "*.ts", "*.py")'),
+});
+
+export type GrepToolInput = z.infer<typeof grepInputSchema>;
 
 // Tool definition for LLM
 export const grepToolDefinition: Tool = {
@@ -8,31 +24,8 @@ export const grepToolDefinition: Tool = {
   description:
     "Search file contents for a pattern (regex supported). " +
     "Returns matching lines with file paths and line numbers.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      pattern: {
-        type: "string",
-        description: "The regex pattern to search for",
-      },
-      path: {
-        type: "string",
-        description: "File or directory to search in (default: current directory)",
-      },
-      include: {
-        type: "string",
-        description: 'Glob filter for file names (e.g. "*.ts", "*.py")',
-      },
-    },
-    required: ["pattern"],
-  },
+  inputSchema: toInputSchema(grepInputSchema),
 };
-
-export interface GrepToolInput {
-  pattern: string;
-  path?: string;
-  include?: string;
-}
 
 const MAX_MATCHES = 100;
 const MAX_FILE_SIZE = 512 * 1024; // 512KB

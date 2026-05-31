@@ -1,5 +1,19 @@
 import { spawn } from "child_process";
+import * as z from "zod";
 import type { Tool } from "../llm/types.js";
+import { toInputSchema } from "./schema.js";
+
+export const bashInputSchema = z.object({
+  command: z.string().describe("The bash command to execute"),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Timeout in milliseconds (default: 30000)"),
+});
+
+export type BashToolInput = z.infer<typeof bashInputSchema>;
 
 // Tool definition for LLM
 export const bashToolDefinition: Tool = {
@@ -7,26 +21,8 @@ export const bashToolDefinition: Tool = {
   description:
     "Execute a bash command and return its output. " +
     "Use this to run shell commands, scripts, or system utilities.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      command: {
-        type: "string",
-        description: "The bash command to execute",
-      },
-      timeout: {
-        type: "number",
-        description: "Timeout in milliseconds (default: 30000)",
-      },
-    },
-    required: ["command"],
-  },
+  inputSchema: toInputSchema(bashInputSchema),
 };
-
-export interface BashToolInput {
-  command: string;
-  timeout?: number;
-}
 
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 const MAX_OUTPUT_SIZE = 100_000; // 100KB

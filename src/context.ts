@@ -1,5 +1,7 @@
+import * as z from "zod";
 import type { Message, Tool } from "./llm/types.js";
 import { estimateMessageTokens, estimateTokens } from "./token-counter.js";
+import { toInputSchema } from "./tools/schema.js";
 
 /**
  * Agent Scratchpad — persistent working notes across iterations.
@@ -57,35 +59,34 @@ export class Scratchpad {
   }
 }
 
+// Tool input schemas (single source of truth for type + JSON Schema)
+export const scratchpadSetInputSchema = z.object({
+  key: z.string().describe("Note key (e.g. 'plan', 'findings')"),
+  value: z.string().describe("Note content"),
+});
+
+export const scratchpadGetInputSchema = z.object({
+  key: z.string().describe("Note key to read"),
+});
+
+export const scratchpadListInputSchema = z.object({});
+
 // Scratchpad tool definitions for the agent
 export const SCRATCHPAD_TOOLS: Tool[] = [
   {
     name: "scratchpad_set",
     description: "Save a note to the scratchpad. Use this to track your plan, findings, or decisions.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "Note key (e.g. 'plan', 'findings')" },
-        value: { type: "string", description: "Note content" },
-      },
-      required: ["key", "value"],
-    },
+    inputSchema: toInputSchema(scratchpadSetInputSchema),
   },
   {
     name: "scratchpad_get",
     description: "Read a note from the scratchpad by key.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "Note key to read" },
-      },
-      required: ["key"],
-    },
+    inputSchema: toInputSchema(scratchpadGetInputSchema),
   },
   {
     name: "scratchpad_list",
     description: "List all scratchpad entries.",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: toInputSchema(scratchpadListInputSchema),
   },
 ];
 
