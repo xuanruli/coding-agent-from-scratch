@@ -3,7 +3,6 @@
  *
  * Configurable via environment variables:
  *   AGENT_NAME   — display name shown in banner and prompt (default: "AI Coding")
- *   AGENT_ICON   — emoji icon for banner and prompt (default: "🤖")
  *   OPENAI_API_KEY / DEEPSEEK_API_KEY — LLM API key (required)
  *   LLM_BASE_URL — API base URL (default: https://api.openai.com/v1)
  *   LLM_MODEL    — model name (default: gpt-4o-mini)
@@ -23,7 +22,6 @@ import {
 import { RetryProvider, safeToolExecutor } from "./src/error.js";
 import { createProvider } from "./src/llm/factory.js";
 import type { Tool } from "./src/llm/types.js";
-import { formatHelp } from "./src/repl.js";
 import {
   checkDangerousCommand,
   FileSystemSandbox,
@@ -38,7 +36,6 @@ import {
   taskListInputSchema,
   taskUpdateInputSchema,
 } from "./src/task.js";
-import { formatToolCall } from "./src/tool-display.js";
 import {
   type BashToolInput,
   bashInputSchema,
@@ -62,11 +59,14 @@ import {
   writeInputSchema,
   writeToolDefinition,
 } from "./src/tools/index.js";
-import { runInkApp, type SlashCommand } from "./src/tui/app.js";
+import {
+  type CommandPanel,
+  runInkApp,
+  type SlashCommand,
+} from "./src/tui/app.js";
 
 // ── Configuration ──────────────────────────────────────────
 const AGENT_NAME = process.env.AGENT_NAME ?? "AI Coding";
-const AGENT_ICON = process.env.AGENT_ICON ?? "🤖";
 const API_KEY =
   process.env.OPENAI_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? "";
 const BASE_URL = process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
@@ -145,7 +145,7 @@ async function rawExecutor(
     input = validated.data as Record<string, unknown>;
   }
 
-  activityReporter?.(formatToolCall(name, input));
+  activityReporter?.(`Running ${name}…`);
 
   if (name.startsWith("task_"))
     return executeTaskTool(taskManager, name, input);
@@ -162,7 +162,7 @@ async function rawExecutor(
     const command = input.command as string;
     const danger = checkDangerousCommand(command);
     if (danger)
-      return `⚠️ Blocked: ${danger}. This command requires user confirmation.`;
+      return `Blocked: ${danger}. This command requires user confirmation.`;
   }
 
   switch (name) {
@@ -212,22 +212,77 @@ const systemPrompt = promptBuilder.build();
 // ── Slash commands (Ch17) ──────────────────────────────────
 const EXIT_KEYWORDS = ["/exit", "/quit"];
 
+// Visual mapping for task status → glyph + color (clean Unicode, no emoji).
+const TASK_STATUS_STYLE: Record<
+  string,
+  { icon: string; color: string; label: string }
+> = {
+  pending: { icon: "○", color: "gray", label: "pending" },
+  in_progress: { icon: "◐", color: "yellow", label: "in progress" },
+  completed: { icon: "●", color: "green", label: "completed" },
+  failed: { icon: "✗", color: "red", label: "failed" },
+};
+
 const commands: SlashCommand[] = [
   {
     name: "/help",
     description: "Show available commands",
-    execute: () => formatHelp(commands, EXIT_KEYWORDS),
+    execute: (): CommandPanel => ({
+      title: "Commands",
+      accent: "cyan",
+      rows: [
+        ...commands.map((c) => ({
+          id: c.name,
+          icon: "▸",
+          iconColor: "cyan",
+          label: c.name,
+          value: c.description,
+        })),
+        {
+          id: "/exit",
+          icon: "▸",
+          iconColor: "cyan",
+          label: EXIT_KEYWORDS.join(", "),
+          value: "Exit the agent",
+        },
+      ],
+    }),
   },
   { name: "/clear", description: "Clear the screen", execute: () => undefined },
   {
     name: "/tasks",
     description: "Show current tasks",
-    execute: () => taskManager.formatForLLM() || "No tasks.",
+    execute: (): CommandPanel => ({
+      title: "Tasks",
+      accent: "blue",
+      empty: "No tasks yet.",
+      rows: taskManager.list().map((t) => {
+        const style = TASK_STATUS_STYLE[t.status] ?? TASK_STATUS_STYLE.pending;
+        return {
+          id: t.id,
+          icon: style.icon,
+          iconColor: style.color,
+          label: t.description,
+          value: `${t.id} · ${style.label}`,
+        };
+      }),
+    }),
   },
   {
     name: "/notes",
     description: "Show scratchpad",
-    execute: () => scratchpad.format() || "Scratchpad is empty.",
+    execute: (): CommandPanel => ({
+      title: "Scratchpad",
+      accent: "green",
+      empty: "Scratchpad is empty.",
+      rows: scratchpad.list().map((e) => ({
+        id: e.key,
+        icon: "◇",
+        iconColor: "green",
+        label: e.key,
+        value: e.value,
+      })),
+    }),
   },
   {
     name: "/reset",
@@ -235,7 +290,7 @@ const commands: SlashCommand[] = [
     execute: () => {
       taskManager.clear();
       scratchpad.clear();
-      return "Cleared.";
+      return "Tasks and scratchpad cleared.";
     },
   },
 ];
@@ -276,7 +331,6 @@ export async function main(): Promise<void> {
   }
   await runInkApp({
     agentName: AGENT_NAME,
-    agentIcon: AGENT_ICON,
     model: MODEL,
     cwd: PROJECT_DIR,
     exitKeywords: EXIT_KEYWORDS,

@@ -6,7 +6,6 @@ import { App, type InkAppOptions, runInkApp } from "../src/tui/app.js";
 function baseOpts(overrides: Partial<InkAppOptions> = {}): InkAppOptions {
   return {
     agentName: "TestBot",
-    agentIcon: "🤖",
     model: "test-model",
     cwd: "/tmp/project",
     exitKeywords: ["/exit"],

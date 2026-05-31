@@ -1,9 +1,9 @@
 /**
  * Runnable entry point. Bootstraps the assembled agent defined in cli.ts.
  *
- * Run with: npm start  (after npm run build)
+ * Run with: pnpm start  (compiles, then runs; .env is loaded by Node via the
+ * --env-file-if-exists flag configured in the start script).
  */
-import "./load-env.js";
 import { main } from "./cli.js";
 
 main().catch((err) => {

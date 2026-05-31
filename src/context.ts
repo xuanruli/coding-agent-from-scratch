@@ -27,6 +27,11 @@ export class Scratchpad {
     return this.entries.find((e) => e.key === key)?.value;
   }
 
+  /** Return a shallow copy of all entries (for display). */
+  list(): Array<{ key: string; value: string }> {
+    return this.entries.map((e) => ({ ...e }));
+  }
+
   delete(key: string): boolean {
     const idx = this.entries.findIndex((e) => e.key === key);
     if (idx >= 0) {

@@ -3,13 +3,46 @@ import BigText from "ink-big-text";
 import Gradient from "ink-gradient";
 import Spinner from "ink-spinner";
 import TextInput from "ink-text-input";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { renderMarkdown } from "../markdown.js";
+
+// ── Glyphs (clean Unicode, not emoji) ──────────────────────
+const GLYPH = {
+  agent: "◆",
+  user: "❯",
+  tool: "▸",
+  panel: "◇",
+  prompt: "❯",
+} as const;
+
+// ── Structured command output ──────────────────────────────
+export interface PanelRow {
+  /** Stable unique key for rendering. */
+  id: string;
+  icon?: string;
+  iconColor?: string;
+  label: string;
+  labelColor?: string;
+  value?: string;
+}
+
+export interface CommandPanel {
+  title: string;
+  accent: string;
+  rows: PanelRow[];
+  empty?: string;
+}
+
+export type CommandOutput = string | CommandPanel;
+
+function isPanel(out: CommandOutput): out is CommandPanel {
+  return typeof out === "object" && out !== null && "rows" in out;
+}
 
 export interface SlashCommand {
   name: string;
   description: string;
-  execute: () => string | undefined;
+  execute: () => CommandOutput | undefined;
 }
 
 export interface TurnResult {
@@ -19,7 +52,6 @@ export interface TurnResult {
 
 export interface InkAppOptions {
   agentName: string;
-  agentIcon: string;
   model: string;
   cwd: string;
   exitKeywords: string[];
@@ -35,29 +67,90 @@ type HistoryItem =
   | { id: number; kind: "banner" }
   | { id: number; kind: "user"; text: string }
   | { id: number; kind: "assistant"; text: string; tools: string[] }
-  | { id: number; kind: "system"; text: string };
+  | { id: number; kind: "panel"; panel: CommandPanel }
+  | { id: number; kind: "note"; text: string; tone: "info" | "error" };
 
 // Distributes Omit across the union so each variant keeps its own fields.
 type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
 
+// ── Presentational pieces ──────────────────────────────────
+function Badge({
+  label,
+  color,
+  icon,
+}: {
+  label: string;
+  color: string;
+  icon?: string;
+}) {
+  return (
+    <Text backgroundColor={color} color="black" bold>
+      {" "}
+      {icon ? `${icon} ` : ""}
+      {label}{" "}
+    </Text>
+  );
+}
+
+function Panel({ panel }: { panel: CommandPanel }) {
+  return (
+    <Box
+      flexDirection="column"
+      marginBottom={1}
+      borderStyle="round"
+      borderColor={panel.accent}
+      paddingX={1}
+    >
+      <Text color={panel.accent} bold>
+        {GLYPH.panel} {panel.title}
+      </Text>
+      {panel.rows.length === 0 ? (
+        <Text dimColor>{panel.empty ?? "(empty)"}</Text>
+      ) : (
+        panel.rows.map((row) => (
+          <Box key={row.id}>
+            {row.icon && (
+              <Text color={row.iconColor ?? panel.accent}>{row.icon} </Text>
+            )}
+            <Text color={row.labelColor} bold={!!row.value}>
+              {row.label}
+            </Text>
+            {row.value && <Text dimColor> {row.value}</Text>}
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+}
+
 function Banner({ opts }: { opts: InkAppOptions }) {
   let cwd = opts.cwd;
-  if (cwd.length > 48) cwd = `…${cwd.slice(-47)}`;
+  if (cwd.length > 44) cwd = `…${cwd.slice(-43)}`;
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Gradient name="pastel">
         <BigText text={opts.agentName} font="tiny" />
       </Gradient>
-      <Box flexDirection="column" marginLeft={1}>
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={1}
+      >
         <Text>
+          <Text color="cyan" bold>
+            {GLYPH.agent}{" "}
+          </Text>
           <Text dimColor>model </Text>
           <Text color="magenta">{opts.model}</Text>
           <Text dimColor> · dir </Text>
           <Text color="magenta">{cwd}</Text>
         </Text>
         <Text dimColor>
-          Type <Text color="cyan">/help</Text> for commands ·{" "}
-          <Text color="cyan">/exit</Text> to quit
+          {"  "}
+          <Text color="cyan">/help</Text> commands ·{" "}
+          <Text color="cyan">/clear</Text> reset view ·{" "}
+          <Text color="cyan">/exit</Text> quit
         </Text>
       </Box>
     </Box>
@@ -77,33 +170,49 @@ function HistoryRow({
     case "user":
       return (
         <Box marginBottom={1}>
-          <Text color="cyanBright" bold>
-            ›{" "}
-          </Text>
-          <Text>{item.text}</Text>
+          <Badge label="you" color="cyan" icon={GLYPH.user} />
+          <Text> {item.text}</Text>
         </Box>
       );
     case "assistant":
       return (
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="magentaBright" bold>
-            {opts.agentIcon} {opts.agentName}
-          </Text>
+          <Box>
+            <Badge label={opts.agentName} color="magenta" icon={GLYPH.agent} />
+          </Box>
           {item.tools.length > 0 && (
-            <Text dimColor>{item.tools.map((t) => `🔧 ${t}`).join("  ")}</Text>
+            <Box marginTop={1} marginLeft={1}>
+              <Text color="yellow">
+                {item.tools.map((t) => `${GLYPH.tool} ${t}`).join("\n")}
+              </Text>
+            </Box>
           )}
-          <Text>{renderMarkdown(item.text)}</Text>
+          <Box
+            borderStyle="single"
+            borderColor="magenta"
+            borderTop={false}
+            borderRight={false}
+            borderBottom={false}
+            paddingLeft={1}
+            marginTop={1}
+          >
+            <Text>{renderMarkdown(item.text)}</Text>
+          </Box>
         </Box>
       );
-    case "system":
+    case "panel":
+      return <Panel panel={item.panel} />;
+    case "note":
       return (
         <Box
           marginBottom={1}
           borderStyle="round"
-          borderColor="gray"
+          borderColor={item.tone === "error" ? "red" : "gray"}
           paddingX={1}
         >
-          <Text>{item.text}</Text>
+          <Text color={item.tone === "error" ? "red" : undefined}>
+            {item.text}
+          </Text>
         </Box>
       );
   }
@@ -117,7 +226,18 @@ export function App({ opts }: { opts: InkAppOptions }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [activity, setActivity] = useState("Thinking…");
+  const [elapsed, setElapsed] = useState(0);
   const nextId = useRef(1);
+
+  // Tick a seconds counter while a turn is running (live spinner feedback).
+  useEffect(() => {
+    if (!busy) {
+      setElapsed(0);
+      return;
+    }
+    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
 
   const push = useCallback((item: WithoutId<HistoryItem>) => {
     setHistory((h) => [...h, { ...item, id: nextId.current++ } as HistoryItem]);
@@ -145,7 +265,13 @@ export function App({ opts }: { opts: InkAppOptions }) {
           return;
         }
         const out = cmd.execute();
-        if (out) push({ kind: "system", text: out });
+        if (out !== undefined) {
+          if (isPanel(out)) {
+            push({ kind: "panel", panel: out });
+          } else {
+            push({ kind: "note", text: out, tone: "info" });
+          }
+        }
         return;
       }
 
@@ -161,7 +287,11 @@ export function App({ opts }: { opts: InkAppOptions }) {
           tools: result.toolCalls.map((t) => t.name),
         });
       } catch (err) {
-        push({ kind: "system", text: `Error: ${(err as Error).message}` });
+        push({
+          kind: "note",
+          text: `Error: ${(err as Error).message}`,
+          tone: "error",
+        });
       } finally {
         setBusy(false);
       }
@@ -176,16 +306,17 @@ export function App({ opts }: { opts: InkAppOptions }) {
       </Static>
 
       {busy ? (
-        <Box>
-          <Text color="cyan">
+        <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+          <Text color="yellow">
             <Spinner type="dots" />
           </Text>
-          <Text> {activity}</Text>
+          <Text bold> {activity}</Text>
+          <Text dimColor> · {elapsed}s</Text>
         </Box>
       ) : (
-        <Box>
+        <Box borderStyle="round" borderColor="cyan" paddingX={1}>
           <Text color="cyanBright" bold>
-            {opts.agentIcon} ›{" "}
+            {GLYPH.prompt}{" "}
           </Text>
           <TextInput
             value={input}

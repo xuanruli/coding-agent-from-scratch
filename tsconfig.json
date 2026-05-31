@@ -11,6 +11,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
-  "include": ["src", "cli.ts", "start.ts", "load-env.ts"],
+  "include": ["src", "cli.ts", "start.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }
