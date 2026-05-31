@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { runAgent } from "../src/agent.js";
+import { describe, expect, it, vi } from "vitest";
 import type { AgentConfig, ToolExecutor } from "../src/agent.js";
-import type { LLMProvider, ChatResponse, Tool } from "../src/llm/types.js";
+import { runAgent } from "../src/agent.js";
+import type { ChatResponse, LLMProvider, Tool } from "../src/llm/types.js";
 
 // Helper to create a mock provider with predefined responses
 function mockProvider(responses: ChatResponse[]): LLMProvider {
@@ -122,5 +122,3 @@ describe("runAgent", () => {
     expect(result.outputTokens).toBe(80);
   });
 });
-
-

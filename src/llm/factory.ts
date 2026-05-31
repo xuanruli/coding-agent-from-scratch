@@ -1,7 +1,7 @@
-import { AnthropicProvider, type AnthropicConfig } from "./anthropic.js";
+import { type AnthropicConfig, AnthropicProvider } from "./anthropic.js";
 import {
-  OpenAICompatibleProvider,
   type OpenAICompatibleConfig,
+  OpenAICompatibleProvider,
 } from "./openai-compatible.js";
 import type { LLMProvider } from "./types.js";
 

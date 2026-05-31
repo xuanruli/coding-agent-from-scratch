@@ -1,6 +1,6 @@
 import * as z from "zod";
 import type { Message, Tool } from "./llm/types.js";
-import { estimateMessageTokens, estimateTokens } from "./token-counter.js";
+import { estimateMessageTokens } from "./token-counter.js";
 import { toInputSchema } from "./tools/schema.js";
 
 /**
@@ -59,7 +59,6 @@ export class Scratchpad {
   }
 }
 
-// Tool input schemas (single source of truth for type + JSON Schema)
 export const scratchpadSetInputSchema = z.object({
   key: z.string().describe("Note key (e.g. 'plan', 'findings')"),
   value: z.string().describe("Note content"),
@@ -75,7 +74,8 @@ export const scratchpadListInputSchema = z.object({});
 export const SCRATCHPAD_TOOLS: Tool[] = [
   {
     name: "scratchpad_set",
-    description: "Save a note to the scratchpad. Use this to track your plan, findings, or decisions.",
+    description:
+      "Save a note to the scratchpad. Use this to track your plan, findings, or decisions.",
     inputSchema: toInputSchema(scratchpadSetInputSchema),
   },
   {
@@ -158,7 +158,10 @@ export function selectMessages(
  */
 export function detectContextPoisoning(text: string): string[] {
   const patterns = [
-    { pattern: /ignore (?:all )?(?:previous |above )?instructions/i, label: "instruction override" },
+    {
+      pattern: /ignore (?:all )?(?:previous |above )?instructions/i,
+      label: "instruction override",
+    },
     { pattern: /you are now/i, label: "role hijacking" },
     { pattern: /system:\s/i, label: "system prompt injection" },
     { pattern: /\bdo not\b.*\btool/i, label: "tool suppression" },

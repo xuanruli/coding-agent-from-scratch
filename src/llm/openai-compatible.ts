@@ -1,14 +1,14 @@
 import OpenAI from "openai";
 import type {
-  Message,
-  ChatResponse,
   ChatOptions,
-  LLMProvider,
-  StreamEvent,
+  ChatResponse,
   ContentBlock,
-  ToolUseBlock,
+  LLMProvider,
+  Message,
+  StreamEvent,
   TextBlock,
   ToolResultBlock,
+  ToolUseBlock,
 } from "./types.js";
 
 export interface OpenAICompatibleConfig {
@@ -45,7 +45,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
       // ContentBlock[] — handle assistant with tool_use and user with tool_result
       if (m.role === "assistant") {
         const textParts = m.content.filter((b) => b.type === "text");
-        const toolUses = m.content.filter((b) => b.type === "tool_use") as ToolUseBlock[];
+        const toolUses = m.content.filter(
+          (b) => b.type === "tool_use"
+        ) as ToolUseBlock[];
         formatted.push({
           role: "assistant",
           content: textParts.length
@@ -141,16 +143,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
       messages: this.formatMessages(messages, options?.system),
       stream: true,
     });
-  
+
     yield { type: "message_start" };
-  
+
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta;
       if (delta?.content) {
         yield { type: "text_delta", text: delta.content };
       }
     }
-  
+
     yield { type: "message_stop" };
   }
 }

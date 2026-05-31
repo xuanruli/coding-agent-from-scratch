@@ -48,7 +48,8 @@ export async function summarizeMessages(
               .map((b) => {
                 if (b.type === "text") return b.text;
                 if (b.type === "tool_use") return `[Tool call: ${b.name}]`;
-                if (b.type === "tool_result") return `[Tool result: ${b.content.slice(0, 200)}]`;
+                if (b.type === "tool_result")
+                  return `[Tool result: ${b.content.slice(0, 200)}]`;
                 return "";
               })
               .join("\n");
@@ -147,9 +148,6 @@ export function needsCompression(
   messages: Message[],
   maxTokens: number
 ): boolean {
-  const total = messages.reduce(
-    (sum, m) => sum + estimateMessageTokens(m),
-    0
-  );
+  const total = messages.reduce((sum, m) => sum + estimateMessageTokens(m), 0);
   return total > maxTokens;
 }

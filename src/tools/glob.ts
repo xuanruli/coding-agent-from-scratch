@@ -1,5 +1,6 @@
-import { readdir, stat } from "fs/promises";
-import { join, relative } from "path";
+import type { Dirent } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
 import * as z from "zod";
 import type { Tool } from "../llm/types.js";
 import { toInputSchema } from "./schema.js";
@@ -7,7 +8,9 @@ import { toInputSchema } from "./schema.js";
 export const globInputSchema = z.object({
   pattern: z
     .string()
-    .describe('The pattern to match files against (e.g. "*.ts", "src/**/*.py")'),
+    .describe(
+      'The pattern to match files against (e.g. "*.ts", "src/**/*.py")'
+    ),
   path: z
     .string()
     .optional()
@@ -30,14 +33,21 @@ const MAX_RESULTS = 200;
 
 // Directories to always skip
 const SKIP_DIRS = new Set([
-  "node_modules", ".git", "__pycache__", ".venv", "dist", "build",
-  ".next", ".cache", "coverage",
+  "node_modules",
+  ".git",
+  "__pycache__",
+  ".venv",
+  "dist",
+  "build",
+  ".next",
+  ".cache",
+  "coverage",
 ]);
 
 // Convert a simple glob pattern to a RegExp
 function globToRegex(pattern: string): RegExp {
   // Replace ** with a placeholder, then handle * and ?
-  let regexStr = pattern
+  const regexStr = pattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*\*/g, "<<GLOBSTAR>>")
     .replace(/\*/g, "[^/]*")
@@ -55,7 +65,7 @@ async function walkDir(
 ): Promise<void> {
   if (results.length >= MAX_RESULTS) return;
 
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {

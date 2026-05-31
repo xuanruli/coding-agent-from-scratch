@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { executeBashTool, bashToolDefinition } from "../src/tools/bash.js";
+import { describe, expect, it } from "vitest";
+import { bashToolDefinition, executeBashTool } from "../src/tools/bash.js";
 
 describe("bashToolDefinition", () => {
   it("should have correct name and required fields", () => {
@@ -15,7 +15,9 @@ describe("executeBashTool", () => {
   });
 
   it("should capture stdout from multi-line output", async () => {
-    const result = await executeBashTool({ command: "echo 'line1'; echo 'line2'" });
+    const result = await executeBashTool({
+      command: "echo 'line1'; echo 'line2'",
+    });
     expect(result).toContain("line1");
     expect(result).toContain("line2");
   });

@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+  bashInputSchema,
+  readInputSchema,
   toInputSchema,
   validateToolInput,
-  readInputSchema,
-  bashInputSchema,
 } from "../src/tools/index.js";
 
 describe("toInputSchema", () => {
@@ -16,7 +16,9 @@ describe("toInputSchema", () => {
 
   it("carries field descriptions through to the JSON Schema", () => {
     const schema = toInputSchema(readInputSchema) as Record<string, any>;
-    expect(schema.properties.file_path.description).toMatch(/path to the file/i);
+    expect(schema.properties.file_path.description).toMatch(
+      /path to the file/i
+    );
   });
 
   it("strips the $schema field (providers expect a bare parameters object)", () => {

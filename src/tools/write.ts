@@ -1,5 +1,5 @@
-import { writeFile, mkdir, readFile } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import * as z from "zod";
 import type { Tool } from "../llm/types.js";
 import { toInputSchema } from "./schema.js";

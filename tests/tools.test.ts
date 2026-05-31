@@ -1,12 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AnthropicProvider } from "../src/llm/anthropic.js";
-import { OpenAICompatibleProvider } from "../src/llm/openai-compatible.js";
 import {
+  createToolResult,
   extractText,
   extractToolUses,
-  createToolResult,
 } from "../src/llm/helpers.js";
-import type { Message, Tool, ContentBlock } from "../src/llm/types.js";
+import { OpenAICompatibleProvider } from "../src/llm/openai-compatible.js";
+import type { ContentBlock, Message, Tool } from "../src/llm/types.js";
 
 // Mock Anthropic SDK
 vi.mock("@anthropic-ai/sdk", () => {
@@ -276,7 +276,12 @@ describe("Helper functions", () => {
     const content: ContentBlock[] = [
       { type: "text", text: "Hello" },
       { type: "tool_use", id: "1", name: "read_file", input: { path: "a.ts" } },
-      { type: "tool_use", id: "2", name: "write_file", input: { path: "b.ts" } },
+      {
+        type: "tool_use",
+        id: "2",
+        name: "write_file",
+        input: { path: "b.ts" },
+      },
     ];
     const tools = extractToolUses(content);
     expect(tools).toHaveLength(2);

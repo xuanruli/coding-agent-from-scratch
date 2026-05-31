@@ -1,5 +1,6 @@
-import { readFile, readdir, stat } from "fs/promises";
-import { join, relative } from "path";
+import type { Dirent, Stats } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
 import * as z from "zod";
 import type { Tool } from "../llm/types.js";
 import { toInputSchema } from "./schema.js";
@@ -32,8 +33,15 @@ const MAX_FILE_SIZE = 512 * 1024; // 512KB
 
 // Directories to skip
 const SKIP_DIRS = new Set([
-  "node_modules", ".git", "__pycache__", ".venv", "dist", "build",
-  ".next", ".cache", "coverage",
+  "node_modules",
+  ".git",
+  "__pycache__",
+  ".venv",
+  "dist",
+  "build",
+  ".next",
+  ".cache",
+  "coverage",
 ]);
 
 // Simple glob to regex for file name matching
@@ -58,7 +66,7 @@ async function searchFile(
   regex: RegExp,
   matches: GrepMatch[]
 ): Promise<void> {
-  let fileStats;
+  let fileStats: Stats;
   try {
     fileStats = await stat(filePath);
   } catch {
@@ -95,7 +103,7 @@ async function walkAndSearch(
 ): Promise<void> {
   if (matches.length >= MAX_MATCHES) return;
 
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -130,7 +138,7 @@ export async function executeGrepTool(input: GrepToolInput): Promise<string> {
   const fileFilter = include ? fileGlobToRegex(include) : null;
 
   // Check if path is a single file or directory
-  let pathStats;
+  let pathStats: Stats;
   try {
     pathStats = await stat(searchPath);
   } catch {
@@ -151,9 +159,7 @@ export async function executeGrepTool(input: GrepToolInput): Promise<string> {
     return `No matches for "${pattern}"`;
   }
 
-  let output = matches
-    .map((m) => `${m.file}:${m.line}: ${m.text}`)
-    .join("\n");
+  let output = matches.map((m) => `${m.file}:${m.line}: ${m.text}`).join("\n");
 
   if (matches.length >= MAX_MATCHES) {
     output += `\n\n(showing first ${MAX_MATCHES} matches)`;

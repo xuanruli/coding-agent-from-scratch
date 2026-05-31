@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "fs";
-import { join } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeWriteTool, writeToolDefinition } from "../src/tools/write.js";
 
 const TEST_DIR = join(import.meta.dirname, "__write_fixtures__");

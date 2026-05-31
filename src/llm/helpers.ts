@@ -1,4 +1,9 @@
-import type { ContentBlock, TextBlock, ToolUseBlock, ToolResultBlock } from "./types.js";
+import type {
+  ContentBlock,
+  TextBlock,
+  ToolResultBlock,
+  ToolUseBlock,
+} from "./types.js";
 
 export function extractText(content: ContentBlock[]): string {
   return content
@@ -16,5 +21,10 @@ export function createToolResult(
   content: string,
   isError = false
 ): ToolResultBlock {
-  return { type: "tool_result", toolUseId, content, ...(isError ? { isError: true } : {}) };
+  return {
+    type: "tool_result",
+    toolUseId,
+    content,
+    ...(isError ? { isError: true } : {}),
+  };
 }

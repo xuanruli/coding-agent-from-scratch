@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { MessageHistory } from "../src/history.js";
 
 describe("MessageHistory", () => {
@@ -61,7 +61,10 @@ describe("MessageHistory", () => {
     expect(history.getLastMessage()).toBeUndefined();
     history.addUser("Hello");
     history.addAssistant("Hi");
-    expect(history.getLastMessage()).toEqual({ role: "assistant", content: "Hi" });
+    expect(history.getLastMessage()).toEqual({
+      role: "assistant",
+      content: "Hi",
+    });
   });
 
   it("should remove last message", () => {

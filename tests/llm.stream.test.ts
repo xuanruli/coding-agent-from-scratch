@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AnthropicProvider } from "../src/llm/anthropic.js";
 import { OpenAICompatibleProvider } from "../src/llm/openai-compatible.js";
 import type { Message, StreamEvent } from "../src/llm/types.js";
@@ -9,7 +9,9 @@ async function* asyncIterable<T>(items: T[]): AsyncIterable<T> {
 }
 
 // Helper to collect all events from stream
-async function collectEvents(stream: AsyncIterable<StreamEvent>): Promise<StreamEvent[]> {
+async function collectEvents(
+  stream: AsyncIterable<StreamEvent>
+): Promise<StreamEvent[]> {
   const events: StreamEvent[] = [];
   for await (const event of stream) events.push(event);
   return events;
@@ -24,8 +26,14 @@ vi.mock("@anthropic-ai/sdk", () => {
         create: vi.fn(),
         stream: vi.fn().mockReturnValue(
           asyncIterable([
-            { type: "content_block_delta", delta: { type: "text_delta", text: "Hello" } },
-            { type: "content_block_delta", delta: { type: "text_delta", text: " world" } },
+            {
+              type: "content_block_delta",
+              delta: { type: "text_delta", text: "Hello" },
+            },
+            {
+              type: "content_block_delta",
+              delta: { type: "text_delta", text: " world" },
+            },
           ])
         ),
       };
@@ -38,12 +46,14 @@ vi.mock("openai", () => {
     default: class {
       chat = {
         completions: {
-          create: vi.fn().mockResolvedValue(
-            asyncIterable([
-              { choices: [{ delta: { content: "Hello" } }] },
-              { choices: [{ delta: { content: " world" } }] },
-            ])
-          ),
+          create: vi
+            .fn()
+            .mockResolvedValue(
+              asyncIterable([
+                { choices: [{ delta: { content: "Hello" } }] },
+                { choices: [{ delta: { content: " world" } }] },
+              ])
+            ),
         },
       };
     },

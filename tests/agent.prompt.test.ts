@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
-import {
-  SystemPromptBuilder,
-  createCodingAssistantPrompt,
-} from "../src/system-prompt.js";
+import { describe, expect, it } from "vitest";
 import type { Tool } from "../src/llm/types.js";
+import {
+  createCodingAssistantPrompt,
+  SystemPromptBuilder,
+} from "../src/system-prompt.js";
 
 const sampleTools: Tool[] = [
   { name: "read_file", description: "Read a file", inputSchema: {} },
@@ -77,9 +77,7 @@ describe("SystemPromptBuilder", () => {
   });
 
   it("should clear all sections", () => {
-    const builder = new SystemPromptBuilder()
-      .setRole("Test")
-      .addRules(["r"]);
+    const builder = new SystemPromptBuilder().setRole("Test").addRules(["r"]);
     builder.clear();
     expect(builder.getSections()).toHaveLength(0);
     expect(builder.build()).toBe("");
@@ -96,60 +94,60 @@ describe("SystemPromptBuilder", () => {
 });
 
 describe("buildWithBudget", () => {
-    it("should include all sections when under budget", () => {
-      const prompt = new SystemPromptBuilder()
-        .addSection("A", "short", 10)
-        .addSection("B", "short", 20)
-        .buildWithBudget(10000);
-  
-      expect(prompt).toContain("## A");
-      expect(prompt).toContain("## B");
-    });
-  
-    it("should drop low-priority sections when over budget", () => {
-      const prompt = new SystemPromptBuilder()
-        .addSection("Important", "x".repeat(50), 100)
-        .addSection("Nice", "y".repeat(50), 50)
-        .addSection("Optional", "z".repeat(50), 10)
-        .buildWithBudget(130);
-  
-      expect(prompt).toContain("## Important");
-      expect(prompt).toContain("## Nice");
-      expect(prompt).not.toContain("## Optional");
-    });
-  
-    it("should always include at least the first section", () => {
-      const prompt = new SystemPromptBuilder()
-        .addSection("Big", "x".repeat(1000), 100)
-        .buildWithBudget(10); // budget too small
-  
-      expect(prompt).toContain("## Big");
-    });
-  
-    it("should return empty for empty builder", () => {
-      expect(new SystemPromptBuilder().buildWithBudget(100)).toBe("");
-    });
+  it("should include all sections when under budget", () => {
+    const prompt = new SystemPromptBuilder()
+      .addSection("A", "short", 10)
+      .addSection("B", "short", 20)
+      .buildWithBudget(10000);
+
+    expect(prompt).toContain("## A");
+    expect(prompt).toContain("## B");
   });
 
-  describe("createCodingAssistantPrompt", () => {
-    it("should create a prompt with all sections", () => {
-      const prompt = createCodingAssistantPrompt(sampleTools);
-  
-      expect(prompt).toContain("## Role");
-      expect(prompt).toContain("## Rules");
-      expect(prompt).toContain("## Available Tools");
-      expect(prompt).toContain("## Output Format");
-      expect(prompt).toContain("read_file");
-    });
-  
-    it("should put role section first", () => {
-      const prompt = createCodingAssistantPrompt(sampleTools);
-      expect(prompt.startsWith("## Role")).toBe(true);
-    });
-  
-    it("should work with empty tools list", () => {
-      const prompt = createCodingAssistantPrompt([]);
-      expect(prompt).toContain("## Role");
-      expect(prompt).toContain("## Available Tools");
-    });
+  it("should drop low-priority sections when over budget", () => {
+    const prompt = new SystemPromptBuilder()
+      .addSection("Important", "x".repeat(50), 100)
+      .addSection("Nice", "y".repeat(50), 50)
+      .addSection("Optional", "z".repeat(50), 10)
+      .buildWithBudget(130);
+
+    expect(prompt).toContain("## Important");
+    expect(prompt).toContain("## Nice");
+    expect(prompt).not.toContain("## Optional");
   });
+
+  it("should always include at least the first section", () => {
+    const prompt = new SystemPromptBuilder()
+      .addSection("Big", "x".repeat(1000), 100)
+      .buildWithBudget(10); // budget too small
+
+    expect(prompt).toContain("## Big");
+  });
+
+  it("should return empty for empty builder", () => {
+    expect(new SystemPromptBuilder().buildWithBudget(100)).toBe("");
+  });
+});
+
+describe("createCodingAssistantPrompt", () => {
+  it("should create a prompt with all sections", () => {
+    const prompt = createCodingAssistantPrompt(sampleTools);
+
+    expect(prompt).toContain("## Role");
+    expect(prompt).toContain("## Rules");
+    expect(prompt).toContain("## Available Tools");
+    expect(prompt).toContain("## Output Format");
+    expect(prompt).toContain("read_file");
+  });
+
+  it("should put role section first", () => {
+    const prompt = createCodingAssistantPrompt(sampleTools);
+    expect(prompt.startsWith("## Role")).toBe(true);
+  });
+
+  it("should work with empty tools list", () => {
+    const prompt = createCodingAssistantPrompt([]);
+    expect(prompt).toContain("## Role");
+    expect(prompt).toContain("## Available Tools");
+  });
+});

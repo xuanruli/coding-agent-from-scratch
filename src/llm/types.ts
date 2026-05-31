@@ -55,5 +55,8 @@ export interface ChatOptions {
 // Unified interface for LLM providers
 export interface LLMProvider {
   chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse>;
-  stream(messages: Message[], options?: ChatOptions): AsyncIterable<StreamEvent>;
+  stream(
+    messages: Message[],
+    options?: ChatOptions
+  ): AsyncIterable<StreamEvent>;
 }

@@ -1,4 +1,4 @@
-import type { Message, Tool, ContentBlock } from "./llm/types.js";
+import type { ContentBlock, Message, Tool } from "./llm/types.js";
 
 /**
  * Estimate token count for a string.
@@ -20,7 +20,7 @@ export function estimateTokens(text: string): number {
       (code >= 0x4e00 && code <= 0x9fff) || // CJK Unified
       (code >= 0x3000 && code <= 0x303f) || // CJK Punctuation
       (code >= 0x3040 && code <= 0x30ff) || // Hiragana + Katakana
-      (code >= 0xff00 && code <= 0xffef)    // Fullwidth forms
+      (code >= 0xff00 && code <= 0xffef) // Fullwidth forms
     ) {
       cjkChars++;
     } else {
@@ -41,8 +41,7 @@ function estimateBlockTokens(block: ContentBlock): number {
       return estimateTokens(block.text);
     case "tool_use":
       return (
-        estimateTokens(block.name) +
-        estimateTokens(JSON.stringify(block.input))
+        estimateTokens(block.name) + estimateTokens(JSON.stringify(block.input))
       );
     case "tool_result":
       return estimateTokens(block.content);
@@ -140,13 +139,22 @@ export const DEFAULT_BUDGET: ContextBudget = {
 /**
  * Calculate remaining budget for input tokens.
  */
-export function remainingBudget(budget: ContextBudget, usedTokens: number): number {
-  return Math.max(0, budget.maxContextTokens - budget.reservedForResponse - usedTokens);
+export function remainingBudget(
+  budget: ContextBudget,
+  usedTokens: number
+): number {
+  return Math.max(
+    0,
+    budget.maxContextTokens - budget.reservedForResponse - usedTokens
+  );
 }
 
 /**
  * Check if adding more tokens would exceed the budget.
  */
-export function isOverBudget(budget: ContextBudget, usedTokens: number): boolean {
+export function isOverBudget(
+  budget: ContextBudget,
+  usedTokens: number
+): boolean {
   return usedTokens >= budget.maxContextTokens - budget.reservedForResponse;
 }

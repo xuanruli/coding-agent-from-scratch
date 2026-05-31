@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AnthropicProvider } from "../src/llm/anthropic.js";
-import { OpenAICompatibleProvider } from "../src/llm/openai-compatible.js";
 import { createProvider } from "../src/llm/factory.js";
+import { OpenAICompatibleProvider } from "../src/llm/openai-compatible.js";
 import type { Message } from "../src/llm/types.js";
 
 // ── AnthropicProvider ──

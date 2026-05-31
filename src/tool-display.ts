@@ -1,6 +1,6 @@
 import { ansi } from "./markdown.js";
 
-const { RESET, BOLD, DIM, CYAN, GREEN, YELLOW, MAGENTA, GRAY } = ansi;
+const { RESET, DIM, CYAN, GREEN, YELLOW, MAGENTA, GRAY } = ansi;
 
 /**
  * Spinner animation for long-running operations.
@@ -73,7 +73,10 @@ export class Spinner {
  * Shows the tool name with its key parameters, e.g.:
  *   🔧 read_file(file_path: "src/main.ts")
  */
-export function formatToolCall(name: string, input: Record<string, unknown>): string {
+export function formatToolCall(
+  name: string,
+  input: Record<string, unknown>
+): string {
   const params = formatParams(input);
   return `${MAGENTA}🔧 ${name}${RESET}${DIM}(${params})${RESET}`;
 }
@@ -81,17 +84,21 @@ export function formatToolCall(name: string, input: Record<string, unknown>): st
 /**
  * Format tool parameters, showing key-value pairs concisely.
  */
-export function formatParams(input: Record<string, unknown>, maxLen = 80): string {
+export function formatParams(
+  input: Record<string, unknown>,
+  maxLen = 80
+): string {
   const entries = Object.entries(input);
   if (entries.length === 0) return "";
 
   const parts = entries.map(([k, v]) => {
-    const val = typeof v === "string" ? `"${truncate(v, 40)}"` : JSON.stringify(v);
+    const val =
+      typeof v === "string" ? `"${truncate(v, 40)}"` : JSON.stringify(v);
     return `${k}: ${val}`;
   });
 
   const joined = parts.join(", ");
-  return joined.length > maxLen ? joined.slice(0, maxLen - 3) + "..." : joined;
+  return joined.length > maxLen ? `${joined.slice(0, maxLen - 3)}...` : joined;
 }
 
 /**
@@ -116,9 +123,11 @@ export function formatToolResult(
   const lines = result.split("\n");
   const totalLines = lines.length;
 
-  const shown = lines.slice(0, maxLines).map((line) =>
-    line.length > maxLineLen ? line.slice(0, maxLineLen - 3) + "..." : line
-  );
+  const shown = lines
+    .slice(0, maxLines)
+    .map((line) =>
+      line.length > maxLineLen ? `${line.slice(0, maxLineLen - 3)}...` : line
+    );
 
   if (totalLines > maxLines) {
     shown.push(`${GRAY}... (${totalLines - maxLines} more lines)${RESET}`);
@@ -147,5 +156,5 @@ export function formatToolCycle(
  */
 export function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 3) + "...";
+  return `${text.slice(0, maxLen - 3)}...`;
 }

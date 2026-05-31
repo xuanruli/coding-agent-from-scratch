@@ -14,12 +14,12 @@ export class FileSystemSandbox {
   constructor(allowedPaths: string[], extraBlocked?: RegExp[]) {
     this.allowedPaths = allowedPaths.map((p) => path.resolve(p));
     this.blockedPatterns = [
-      /\.env($|\.)/,             // .env files
-      /\/(\.ssh|\.gnupg)\//,     // SSH/GPG keys
-      /\/\.git\/config$/,        // git credentials
-      /\/(passwd|shadow)$/,      // system auth files
-      /\/credentials\.json$/,    // cloud credentials
-      /\/\.aws\//,               // AWS config
+      /\.env($|\.)/, // .env files
+      /\/(\.ssh|\.gnupg)\//, // SSH/GPG keys
+      /\/\.git\/config$/, // git credentials
+      /\/(passwd|shadow)$/, // system auth files
+      /\/credentials\.json$/, // cloud credentials
+      /\/\.aws\//, // AWS config
       ...(extraBlocked ?? []),
     ];
   }
@@ -40,7 +40,8 @@ export class FileSystemSandbox {
 
     // Check if within allowed directories
     const inAllowed = this.allowedPaths.some(
-      (allowed) => resolved === allowed || resolved.startsWith(allowed + path.sep)
+      (allowed) =>
+        resolved === allowed || resolved.startsWith(allowed + path.sep)
     );
 
     if (!inAllowed) {
@@ -62,13 +63,28 @@ export class FileSystemSandbox {
  * Dangerous command patterns that require user confirmation.
  */
 const DANGEROUS_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
-  { pattern: /\brm\s+(-[rf]+\s+|.*--no-preserve-root)/, reason: "Recursive/forced file deletion" },
-  { pattern: /\bgit\s+push\s+.*--force/, reason: "Force push may overwrite remote history" },
-  { pattern: /\bgit\s+reset\s+--hard/, reason: "Hard reset discards uncommitted changes" },
+  {
+    pattern: /\brm\s+(-[rf]+\s+|.*--no-preserve-root)/,
+    reason: "Recursive/forced file deletion",
+  },
+  {
+    pattern: /\bgit\s+push\s+.*--force/,
+    reason: "Force push may overwrite remote history",
+  },
+  {
+    pattern: /\bgit\s+reset\s+--hard/,
+    reason: "Hard reset discards uncommitted changes",
+  },
   { pattern: /\bchmod\s+777\b/, reason: "Sets world-writable permissions" },
-  { pattern: /\bcurl\s+.*\|\s*(sh|bash)\b/, reason: "Piping remote script to shell" },
+  {
+    pattern: /\bcurl\s+.*\|\s*(sh|bash)\b/,
+    reason: "Piping remote script to shell",
+  },
   { pattern: /\bsudo\s+/, reason: "Elevated privilege execution" },
-  { pattern: /\b(DROP|DELETE\s+FROM|TRUNCATE)\b/i, reason: "Destructive database operation" },
+  {
+    pattern: /\b(DROP|DELETE\s+FROM|TRUNCATE)\b/i,
+    reason: "Destructive database operation",
+  },
   { pattern: /\bkill\s+-9\b/, reason: "Forceful process termination" },
 ];
 

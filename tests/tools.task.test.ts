@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
-  TaskManager,
   executeTaskTool,
-  taskCreateToolDefinition,
-  taskUpdateToolDefinition,
-  taskListToolDefinition,
   TASK_TOOLS,
+  TaskManager,
+  taskCreateToolDefinition,
+  taskListToolDefinition,
+  taskUpdateToolDefinition,
 } from "../src/task.js";
 
 describe("TaskManager", () => {
@@ -28,7 +28,7 @@ describe("TaskManager", () => {
     const task = manager.get("task_1");
     expect(task?.status).toBe("pending");
   });
-  
+
   it("should update task status", () => {
     manager.create("My task");
     const ok = manager.update("task_1", "in_progress");

@@ -1,14 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type {
-  Message,
-  ChatResponse,
   ChatOptions,
-  LLMProvider,
-  StreamEvent,
+  ChatResponse,
   ContentBlock,
+  LLMProvider,
+  Message,
+  StreamEvent,
+  TextBlock,
   ToolResultBlock,
   ToolUseBlock,
-  TextBlock,
 } from "./types.js";
 
 export interface AnthropicConfig {
@@ -32,7 +32,12 @@ export class AnthropicProvider implements LLMProvider {
     return content.map((block) => {
       if (block.type === "text") return { type: "text", text: block.text };
       if (block.type === "tool_use") {
-        return { type: "tool_use", id: block.id, name: block.name, input: block.input };
+        return {
+          type: "tool_use",
+          id: block.id,
+          name: block.name,
+          input: block.input,
+        };
       }
       // tool_result
       return {
@@ -51,7 +56,10 @@ export class AnthropicProvider implements LLMProvider {
     const params: Record<string, unknown> = {
       model: this.model,
       max_tokens: options?.maxTokens ?? 4096,
-      messages: messages.map((m) => ({ role: m.role, content: this.formatContent(m.content) })),
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: this.formatContent(m.content),
+      })),
     };
     if (options?.system) params.system = options.system;
 
@@ -75,18 +83,23 @@ export class AnthropicProvider implements LLMProvider {
 
     const content: ContentBlock[] = response.content.map((b: any) => {
       if (b.type === "tool_use") {
-        return { type: "tool_use", id: b.id, name: b.name, input: b.input } as ToolUseBlock;
+        return {
+          type: "tool_use",
+          id: b.id,
+          name: b.name,
+          input: b.input,
+        } as ToolUseBlock;
       }
       return { type: "text", text: b.text } as TextBlock;
     });
 
     const stopReason: ChatResponse["stopReason"] =
-    response.stop_reason === "end_turn"
-      ? "end_turn"
-      : response.stop_reason === "tool_use"
-        ? "tool_use"
-        : "max_tokens";
-    
+      response.stop_reason === "end_turn"
+        ? "end_turn"
+        : response.stop_reason === "tool_use"
+          ? "tool_use"
+          : "max_tokens";
+
     return {
       content,
       text,
@@ -112,9 +125,9 @@ export class AnthropicProvider implements LLMProvider {
     const stream = this.client.messages.stream(
       params as unknown as Anthropic.MessageCreateParamsNonStreaming
     );
-  
+
     yield { type: "message_start" };
-  
+
     for await (const event of stream) {
       if (
         event.type === "content_block_delta" &&
@@ -123,7 +136,7 @@ export class AnthropicProvider implements LLMProvider {
         yield { type: "text_delta", text: event.delta.text };
       }
     }
-  
+
     yield { type: "message_stop" };
   }
 }

@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 import * as z from "zod";
 import type { Tool } from "../llm/types.js";
 import { toInputSchema } from "./schema.js";
@@ -30,11 +30,7 @@ const MAX_OUTPUT_SIZE = 100_000; // 100KB
 function truncateOutput(output: string): string {
   if (output.length <= MAX_OUTPUT_SIZE) return output;
   const half = Math.floor(MAX_OUTPUT_SIZE / 2);
-  return (
-    output.slice(0, half) +
-    "\n\n... (truncated) ...\n\n" +
-    output.slice(-half)
-  );
+  return `${output.slice(0, half)}\n\n... (truncated) ...\n\n${output.slice(-half)}`;
 }
 
 export function executeBashTool(input: BashToolInput): Promise<string> {

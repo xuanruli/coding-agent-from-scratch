@@ -1,4 +1,5 @@
-import { readFile, stat } from "fs/promises";
+import type { Stats } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 import * as z from "zod";
 import type { Tool } from "../llm/types.js";
 import { toInputSchema } from "./schema.js";
@@ -47,10 +48,7 @@ function isBinary(buffer: Buffer): boolean {
 }
 
 // Format file content with line numbers
-function formatWithLineNumbers(
-  content: string,
-  offset: number
-): string {
+function formatWithLineNumbers(content: string, offset: number): string {
   const lines = content.split("\n");
   // Remove trailing empty line from split
   if (lines.length > 0 && lines[lines.length - 1] === "") {
@@ -75,7 +73,7 @@ export async function executeReadTool(input: ReadToolInput): Promise<string> {
   }
 
   // Check file exists and get size
-  let fileStats;
+  let fileStats: Stats;
   try {
     fileStats = await stat(file_path);
   } catch {

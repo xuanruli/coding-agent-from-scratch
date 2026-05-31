@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { writeFileSync, mkdirSync, rmSync } from "fs";
-import { join } from "path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeReadTool, readToolDefinition } from "../src/tools/read.js";
 
 const TEST_DIR = join(import.meta.dirname, "__fixtures__");
@@ -11,7 +11,7 @@ beforeAll(() => {
   mkdirSync(TEST_DIR, { recursive: true });
   // Create a sample text file with known content
   const lines = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}: content`);
-  writeFileSync(TEST_FILE, lines.join("\n") + "\n");
+  writeFileSync(TEST_FILE, `${lines.join("\n")}\n`);
   // Create a binary file
   const buf = Buffer.alloc(100);
   buf[0] = 0x89; // PNG-like header

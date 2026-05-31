@@ -36,9 +36,7 @@ export class SystemPromptBuilder {
 
   // Auto-generate tool usage guide from Tool definitions
   addToolGuide(tools: Tool[]): this {
-    const lines = tools.map(
-      (t) => `- **${t.name}**: ${t.description}`
-    );
+    const lines = tools.map((t) => `- **${t.name}**: ${t.description}`);
     return this.addSection("Available Tools", lines.join("\n"), 60);
   }
 
@@ -52,9 +50,7 @@ export class SystemPromptBuilder {
     const sorted = [...this.sections].sort(
       (a, b) => (b.priority ?? 0) - (a.priority ?? 0)
     );
-    return sorted
-      .map((s) => `## ${s.title}\n${s.content}`)
-      .join("\n\n");
+    return sorted.map((s) => `## ${s.title}\n${s.content}`).join("\n\n");
   }
 
   // Build with a token budget — drop lowest-priority sections if over limit
@@ -97,7 +93,7 @@ export function createCodingAssistantPrompt(tools: Tool[]): string {
   return new SystemPromptBuilder()
     .setRole(
       "You are a coding assistant. Help the user with software engineering tasks " +
-      "by reading files, writing code, and running commands. Be concise and accurate."
+        "by reading files, writing code, and running commands. Be concise and accurate."
     )
     .addRules([
       "Always read a file before modifying it.",
@@ -108,7 +104,7 @@ export function createCodingAssistantPrompt(tools: Tool[]): string {
     .addToolGuide(tools)
     .setOutputConstraints(
       "Respond in the user's language. Use markdown for code blocks. " +
-      "Keep explanations brief and focused."
+        "Keep explanations brief and focused."
     )
     .build();
 }

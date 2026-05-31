@@ -9,44 +9,74 @@
  *   LLM_MODEL    — model name (default: gpt-4o-mini)
  */
 import * as os from "node:os";
-import { createProvider } from "./src/llm/factory.js";
-import { runAgent } from "./src/agent.js";
+import type * as z from "zod";
 import type { AgentConfig } from "./src/agent.js";
+import { runAgent } from "./src/agent.js";
 import {
-  TaskManager, executeTaskTool, TASK_TOOLS,
-  taskCreateInputSchema, taskUpdateInputSchema, taskListInputSchema,
-} from "./src/task.js";
+  executeScratchpadTool,
+  SCRATCHPAD_TOOLS,
+  Scratchpad,
+  scratchpadGetInputSchema,
+  scratchpadListInputSchema,
+  scratchpadSetInputSchema,
+} from "./src/context.js";
 import { RetryProvider, safeToolExecutor } from "./src/error.js";
+import { createProvider } from "./src/llm/factory.js";
+import type { Tool } from "./src/llm/types.js";
+import { formatHelp } from "./src/repl.js";
+import {
+  checkDangerousCommand,
+  FileSystemSandbox,
+  readProjectConfig,
+} from "./src/safety.js";
 import { SystemPromptBuilder } from "./src/system-prompt.js";
 import {
-  Scratchpad, SCRATCHPAD_TOOLS, executeScratchpadTool,
-  scratchpadSetInputSchema, scratchpadGetInputSchema, scratchpadListInputSchema,
-} from "./src/context.js";
-import { renderMarkdown } from "./src/markdown.js";
-import { Spinner, formatToolCycle } from "./src/tool-display.js";
-import { FileSystemSandbox, checkDangerousCommand, readProjectConfig } from "./src/safety.js";
-import { runRepl } from "./src/repl.js";
+  executeTaskTool,
+  TASK_TOOLS,
+  TaskManager,
+  taskCreateInputSchema,
+  taskListInputSchema,
+  taskUpdateInputSchema,
+} from "./src/task.js";
+import { formatToolCall } from "./src/tool-display.js";
 import {
+  type BashToolInput,
+  bashInputSchema,
+  bashToolDefinition,
+  executeBashTool,
+  executeGlobTool,
+  executeGrepTool,
+  executeReadTool,
+  executeWriteTool,
+  type GlobToolInput,
+  type GrepToolInput,
+  globInputSchema,
+  globToolDefinition,
+  grepInputSchema,
+  grepToolDefinition,
+  type ReadToolInput,
+  readInputSchema,
+  readToolDefinition,
   validateToolInput,
-  readToolDefinition, executeReadTool, type ReadToolInput, readInputSchema,
-  writeToolDefinition, executeWriteTool, type WriteToolInput, writeInputSchema,
-  bashToolDefinition, executeBashTool, type BashToolInput, bashInputSchema,
-  globToolDefinition, executeGlobTool, type GlobToolInput, globInputSchema,
-  grepToolDefinition, executeGrepTool, type GrepToolInput, grepInputSchema,
+  type WriteToolInput,
+  writeInputSchema,
+  writeToolDefinition,
 } from "./src/tools/index.js";
-import type { Tool } from "./src/llm/types.js";
-import type * as z from "zod";
+import { runInkApp, type SlashCommand } from "./src/tui/app.js";
 
 // ── Configuration ──────────────────────────────────────────
 const AGENT_NAME = process.env.AGENT_NAME ?? "AI Coding";
 const AGENT_ICON = process.env.AGENT_ICON ?? "🤖";
-const API_KEY = process.env.OPENAI_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? "";
+const API_KEY =
+  process.env.OPENAI_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? "";
 const BASE_URL = process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
 const MODEL = process.env.LLM_MODEL ?? "gpt-4o-mini";
 const PROJECT_DIR = process.cwd();
 
 if (!API_KEY) {
-  console.error("Error: Set DEEPSEEK_API_KEY or OPENAI_API_KEY environment variable.");
+  console.error(
+    "Error: Set DEEPSEEK_API_KEY or OPENAI_API_KEY environment variable."
+  );
   process.exit(1);
 }
 
@@ -58,7 +88,9 @@ const baseProvider = createProvider({
   model: MODEL,
 });
 const provider = new RetryProvider(baseProvider, {
-  maxRetries: 2, baseDelayMs: 500, maxDelayMs: 5000,
+  maxRetries: 2,
+  baseDelayMs: 500,
+  maxDelayMs: 5000,
 });
 
 // ── Tools (Ch05-08 + Ch11 + Ch15) ─────────────────────────
@@ -66,8 +98,11 @@ const taskManager = new TaskManager();
 const scratchpad = new Scratchpad();
 
 const allTools: Tool[] = [
-  readToolDefinition, writeToolDefinition, bashToolDefinition,
-  globToolDefinition, grepToolDefinition,
+  readToolDefinition,
+  writeToolDefinition,
+  bashToolDefinition,
+  globToolDefinition,
+  grepToolDefinition,
   ...TASK_TOOLS,
   ...SCRATCHPAD_TOOLS,
 ];
@@ -90,8 +125,16 @@ const TOOL_SCHEMAS: Record<string, z.ZodType> = {
   scratchpad_list: scratchpadListInputSchema,
 };
 
+// Live activity reporter — set per turn so the Ink spinner can show which
+// tool is currently running. Writing to stdout/stderr directly would corrupt
+// Ink's render, so progress is surfaced through this callback instead.
+let activityReporter: ((msg: string) => void) | null = null;
+
 // ── Tool Executor (Ch09 + Ch12 + Ch19 + Ch20) ─────────────
-async function rawExecutor(name: string, input: Record<string, unknown>): Promise<string> {
+async function rawExecutor(
+  name: string,
+  input: Record<string, unknown>
+): Promise<string> {
   // Validate the LLM-supplied arguments against the tool's schema before
   // doing anything else. On failure, return the error to the LLM so it can
   // correct the call rather than crashing on malformed input.
@@ -102,8 +145,12 @@ async function rawExecutor(name: string, input: Record<string, unknown>): Promis
     input = validated.data as Record<string, unknown>;
   }
 
-  if (name.startsWith("task_")) return executeTaskTool(taskManager, name, input);
-  if (name.startsWith("scratchpad_")) return executeScratchpadTool(scratchpad, name, input);
+  activityReporter?.(formatToolCall(name, input));
+
+  if (name.startsWith("task_"))
+    return executeTaskTool(taskManager, name, input);
+  if (name.startsWith("scratchpad_"))
+    return executeScratchpadTool(scratchpad, name, input);
 
   if (name === "read_file" || name === "write_file") {
     const filePath = input.file_path as string;
@@ -114,30 +161,23 @@ async function rawExecutor(name: string, input: Record<string, unknown>): Promis
   if (name === "bash") {
     const command = input.command as string;
     const danger = checkDangerousCommand(command);
-    if (danger) return `⚠️ Blocked: ${danger}. This command requires user confirmation.`;
+    if (danger)
+      return `⚠️ Blocked: ${danger}. This command requires user confirmation.`;
   }
 
-  const spinner = new Spinner(`${name}...`);
-  spinner.start();
-  const start = performance.now();
-
-  try {
-    let result: string;
-    switch (name) {
-      case "read_file": result = await executeReadTool(input as unknown as ReadToolInput); break;
-      case "write_file": result = await executeWriteTool(input as unknown as WriteToolInput); break;
-      case "bash": result = await executeBashTool(input as unknown as BashToolInput); break;
-      case "glob": result = await executeGlobTool(input as unknown as GlobToolInput); break;
-      case "grep": result = await executeGrepTool(input as unknown as GrepToolInput); break;
-      default: result = `Error: unknown tool "${name}"`;
-    }
-
-    const ms = performance.now() - start;
-    spinner.succeed(`${name} [${Math.round(ms)}ms]`);
-    return result;
-  } catch (err) {
-    spinner.fail(`${name} failed`);
-    throw err;
+  switch (name) {
+    case "read_file":
+      return executeReadTool(input as unknown as ReadToolInput);
+    case "write_file":
+      return executeWriteTool(input as unknown as WriteToolInput);
+    case "bash":
+      return executeBashTool(input as unknown as BashToolInput);
+    case "glob":
+      return executeGlobTool(input as unknown as GlobToolInput);
+    case "grep":
+      return executeGrepTool(input as unknown as GrepToolInput);
+    default:
+      return `Error: unknown tool "${name}"`;
   }
 }
 
@@ -149,7 +189,7 @@ const projectConfig = readProjectConfig(PROJECT_DIR);
 const promptBuilder = new SystemPromptBuilder()
   .setRole(
     "You are a coding assistant. Help the user with software engineering tasks " +
-    "by reading files, writing code, and running commands. Be concise and accurate."
+      "by reading files, writing code, and running commands. Be concise and accurate."
   )
   .addRules([
     "Always read a file before modifying it.",
@@ -169,82 +209,78 @@ if (projectConfig) {
 
 const systemPrompt = promptBuilder.build();
 
-// ── Banner ─────────────────────────────────────────────────
-const W = 58;
-const RC = "\x1b[38;5;204m";
-const RB = "\x1b[1;38;5;204m";
-const GY = "\x1b[38;5;247m";
-const PK = "\x1b[38;5;218m";
-const XX = "\x1b[0m";
+// ── Slash commands (Ch17) ──────────────────────────────────
+const EXIT_KEYWORDS = ["/exit", "/quit"];
 
-function dw(s: string): number {
-  let w = 0;
-  for (const ch of s) {
-    const cp = ch.codePointAt(0) ?? 0;
-    if (cp > 0xFFFF) w += 2;
-    else w += 1;
+const commands: SlashCommand[] = [
+  {
+    name: "/help",
+    description: "Show available commands",
+    execute: () => formatHelp(commands, EXIT_KEYWORDS),
+  },
+  { name: "/clear", description: "Clear the screen", execute: () => undefined },
+  {
+    name: "/tasks",
+    description: "Show current tasks",
+    execute: () => taskManager.formatForLLM() || "No tasks.",
+  },
+  {
+    name: "/notes",
+    description: "Show scratchpad",
+    execute: () => scratchpad.format() || "Scratchpad is empty.",
+  },
+  {
+    name: "/reset",
+    description: "Clear tasks and scratchpad",
+    execute: () => {
+      taskManager.clear();
+      scratchpad.clear();
+      return "Cleared.";
+    },
+  },
+];
+
+// One agent turn, driving the Ink spinner via the activity reporter.
+async function submitTurn(
+  input: string,
+  hooks: { onActivity: (msg: string) => void }
+) {
+  activityReporter = hooks.onActivity;
+  try {
+    const config: AgentConfig = {
+      provider,
+      system: systemPrompt,
+      tools: allTools,
+      executeTool,
+      maxIterations: 50,
+      maxTokens: 4096,
+      parallelToolCalls: true,
+    };
+    const result = await runAgent(config, input);
+    return {
+      text: result.text,
+      toolCalls: result.toolCalls.map((t) => ({ name: t.name })),
+    };
+  } finally {
+    activityReporter = null;
   }
-  return w;
 }
-
-function row(text: string, ...colorParts: string[]): string {
-  const pad = " ".repeat(W - dw(text));
-  const inner = colorParts.join("") + pad + RC;
-  return `║${inner}║`;
-}
-
-function showBanner(): void {
-  let cwd = PROJECT_DIR;
-  if (cwd.length > 40) cwd = "..." + cwd.slice(-37);
-
-  const title = `     ${AGENT_ICON}  ${AGENT_NAME}`;
-  const subtitle = "     Your AI Coding Assistant";
-
-  const border = "═".repeat(W);
-  const blank = row("", "");
-
-  console.log(`
-${RC}╔${border}╗
-${blank}
-${row(title, `     ${AGENT_ICON}  `, RB, AGENT_NAME, XX, RC)}
-${blank}
-${row(subtitle, GY, subtitle)}
-${blank}
-${row(`     Model:  ${MODEL}`, GY, "     Model:  ", PK, MODEL)}
-${row(`     Dir:    ${cwd}`, GY, "     Dir:    ", PK, cwd)}
-${blank}
-${row("     Type /help for commands · /exit to quit", GY, "     Type ", PK, "/help", GY, " for commands · ", PK, "/exit", GY, " to quit")}
-${blank}
-╚${border}╝${XX}
-`);
-}
-
-// ── REPL (Ch17) ────────────────────────────────────────────
-const promptStr = `${RC}${AGENT_ICON} > ${XX}`;
 
 // ── Main ───────────────────────────────────────────────────
 export async function main(): Promise<void> {
-  showBanner();
-  await runRepl({
-    prompt: promptStr,
-    commands: [
-      { name: "/tasks", description: "Show current tasks", execute: () => taskManager.formatForLLM() || "No tasks." },
-      { name: "/notes", description: "Show scratchpad", execute: () => scratchpad.format() || "Scratchpad is empty." },
-      { name: "/reset", description: "Clear tasks and scratchpad", execute: () => { taskManager.clear(); scratchpad.clear(); return "Cleared."; } },
-    ],
-    onInput: async (input: string) => {
-      const config: AgentConfig = {
-        provider,
-        system: systemPrompt,
-        tools: allTools,
-        executeTool,
-        maxIterations: 50,
-        maxTokens: 4096,
-        parallelToolCalls: true,
-      };
-
-      const result = await runAgent(config, input);
-      return renderMarkdown(result.text);
-    },
+  if (!process.stdin.isTTY) {
+    console.error(
+      "This interactive CLI requires a TTY. Run it directly in a terminal."
+    );
+    process.exit(1);
+  }
+  await runInkApp({
+    agentName: AGENT_NAME,
+    agentIcon: AGENT_ICON,
+    model: MODEL,
+    cwd: PROJECT_DIR,
+    exitKeywords: EXIT_KEYWORDS,
+    commands,
+    submit: submitTurn,
   });
 }
