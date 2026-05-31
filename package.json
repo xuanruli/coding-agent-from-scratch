@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "start": "node dist/start.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "tsc --watch"
